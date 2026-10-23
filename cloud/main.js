@@ -278,6 +278,27 @@ Parse.Cloud.define('setupSchema', async () => {
   return { ok: true, classes: report, note: 'Indexes are not managed here: create the UNIQUE index on AppliedOp.opId in Dashboard → Database → Index Manager.' };
 });
 
+// testCleanup({ objectId }): deletes one throw-away user and every Entry/AppliedOp/Conflict row it owns, so that
+// scripts/check-sync.mjs can run against a live backend with the REST key alone. Only users created in the last two
+// hours qualify, and the whole function is off once SETUP_ENABLED is false.
+Parse.Cloud.define('testCleanup', async (req) => {
+  if (!CONFIG.SETUP_ENABLED) fail(Parse.Error.OPERATION_FORBIDDEN, 'testCleanup is disabled (cloud/config.js SETUP_ENABLED=false).');
+  const objectId = req.params && req.params.objectId;
+  if (typeof objectId !== 'string' || !objectId) fail(Parse.Error.VALIDATION_ERROR, 'objectId (string) is required.');
+  const user = await new Parse.Query(Parse.User).get(objectId, M);
+  if (user.createdAt < new Date(Date.now() - 2 * 60 * 60 * 1000)) fail(Parse.Error.OPERATION_FORBIDDEN, 'testCleanup only removes users created in the last 2 hours.');
+  const removed = {};
+  for (const className of ['Conflict', 'AppliedOp', 'Entry']) {
+    const rows = await new Parse.Query(className).equalTo('owner', user).limit(1000).find(M);
+    await Parse.Object.destroyAll(rows, M);
+    removed[className] = rows.length;
+  }
+  const sessions = await new Parse.Query(Parse.Session).equalTo('user', user).limit(1000).find(M);
+  await Parse.Object.destroyAll(sessions, M);
+  await user.destroy(M);
+  return { ok: true, userId: objectId, removed, sessionsRemoved: sessions.length };
+});
+
 // Entry/AppliedOp/Conflict are written only by this file (master key). Any direct client write — even if a CLP or ACL
 // let it through — is rejected here. Master-key writes (Cloud Code, dashboard) pass.
 for (const className of ['Entry', 'AppliedOp', 'Conflict']) {

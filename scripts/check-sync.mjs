@@ -1,11 +1,14 @@
 // scripts/check-sync.mjs · Node >= 20
-// End-to-end check of the sync contract against a real backend, without a device: creates a throw-away user with the
-// master key, exercises syncOp / listEntries / ensureUser through the REST API with that user's session token, verifies
+// End-to-end check of the sync contract against a real backend, without a device: creates a throw-away user (public
+// sign-up), exercises syncOp / listEntries / ensureUser through the REST API with that user's session token, verifies
 // the client-write lockdown, then deletes everything it created (rows and user). Prints PASS/FAIL lines.
+// With MASTER_KEY in .env the cleanup uses the key directly; without it, the testCleanup Cloud function (guarded by
+// SETUP_ENABLED in cloud/config.js) does the same work inside Cloud Code.
 //   node scripts/check-sync.mjs
 import { loadEnv, rest, randomPassword } from './lib.mjs';
 
-const env = loadEnv();
+const env = loadEnv({ master: false });
+const hasMaster = Boolean(env.MASTER_KEY);
 let passed = 0, failed = 0;
 function check(name, ok, detail = '') {
   if (ok) passed++; else failed++;
@@ -17,7 +20,7 @@ const fn = async (name, params, session) => (await rest(env, 'POST', `/functions
 
 const username = `check-sync-${Date.now()}`;
 const password = randomPassword();
-const user = await rest(env, 'POST', '/users', { username, password }, { master: true });
+const user = await rest(env, 'POST', '/users', { username, password });
 const session = user.sessionToken;
 console.log(`throw-away user ${user.objectId} (${username}) created`);
 
@@ -72,7 +75,7 @@ try {
   // client-side writes are locked down
   try { await rest(env, 'POST', '/classes/Entry', { entryKey: uuid(), amountCents: 1 }, { session }); check('direct Entry create rejected', false); }
   catch (e) { check('direct Entry create rejected (CLP 119 or beforeSave)', e.code === 119, `${e.code} ${e.message}`); }
-  const entryRows = await rest(env, 'GET', `/classes/Entry?where=${encodeURIComponent(JSON.stringify({ entryKey }))}`, undefined, { master: true });
+  const entryRows = await rest(env, 'GET', `/classes/Entry?where=${encodeURIComponent(JSON.stringify({ entryKey }))}`, undefined, { session }); // owner read (ACL)
   const entryId = entryRows.results[0]?.objectId;
   try { await rest(env, 'PUT', `/classes/Entry/${entryId}`, { amountCents: 1 }, { session }); check('direct Entry update rejected', false); }
   catch (e) { check('direct Entry update rejected (119)', e.code === 119, `${e.code} ${e.message}`); }
@@ -87,15 +90,20 @@ try {
 } catch (e) {
   check('unexpected error', false, `${e.status || ''} ${e.code || ''} ${e.message}`);
 } finally {
-  // cleanup (master): rows owned by the throw-away user, then the user
-  const owner = { __type: 'Pointer', className: '_User', objectId: user.objectId };
-  for (const cls of ['Conflict', 'AppliedOp', 'Entry']) {
-    const rows = await rest(env, 'GET', `/classes/${cls}?where=${encodeURIComponent(JSON.stringify({ owner }))}&limit=1000`, undefined, { master: true });
-    for (const r of rows.results) await rest(env, 'DELETE', `/classes/${cls}/${r.objectId}`, undefined, { master: true });
-    console.log(`cleanup ${cls}: ${rows.results.length} row(s) removed`);
+  // cleanup: rows owned by the throw-away user, then the user — master key here, or testCleanup inside Cloud Code
+  if (hasMaster) {
+    const owner = { __type: 'Pointer', className: '_User', objectId: user.objectId };
+    for (const cls of ['Conflict', 'AppliedOp', 'Entry']) {
+      const rows = await rest(env, 'GET', `/classes/${cls}?where=${encodeURIComponent(JSON.stringify({ owner }))}&limit=1000`, undefined, { master: true });
+      for (const r of rows.results) await rest(env, 'DELETE', `/classes/${cls}/${r.objectId}`, undefined, { master: true });
+      console.log(`cleanup ${cls}: ${rows.results.length} row(s) removed`);
+    }
+    await rest(env, 'DELETE', `/users/${user.objectId}`, undefined, { master: true });
+    console.log(`cleanup: user ${user.objectId} removed`);
+  } else {
+    const r = await fn('testCleanup', { objectId: user.objectId });
+    console.log(`cleanup (testCleanup, no master key): ${JSON.stringify(r.removed)}, user ${user.objectId} removed`);
   }
-  await rest(env, 'DELETE', `/users/${user.objectId}`, undefined, { master: true });
-  console.log(`cleanup: user ${user.objectId} removed`);
 }
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
