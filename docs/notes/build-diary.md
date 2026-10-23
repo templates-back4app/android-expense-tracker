@@ -274,3 +274,20 @@ against it; with the flag off: `119 setupSchema is disabled`.
 
 `./gradlew test assembleDebug assembleRelease`: 28 s, 29 tests, 0 failed. `app-debug.apk` 14,325,116 B,
 `app-release.apk` 2,083,111 B (+283 B vs the 2026-10-23 morning build: the semantics strings and the rebase code).
+
+## 13. 2026-10-23 — live run on Back4app (backend `expense-tracker`, Parse Server 7.5.2, MongoDB)
+
+- Cloud Code deployed from the dashboard editor (`main.js` via the editor, `config.js` via *Upload Files* with the
+  `cloud` folder selected). `setupSchema` from the REST key: Entry updated (+deletedAt), AppliedOp updated, Conflict
+  created, CLPs applied. UNIQUE index `opId_1opId_uniq` on `AppliedOp.opId` created in the Index Manager after one
+  row existed (the dashboard fails silently on an empty collection).
+- **Idempotency proven live** (`docs/evidence/idempotency-live-2026-10-23.txt`): same opId twice → second answers
+  `applied:false, reason "duplicate opId"`; two parallel calls with one opId → exactly one applied.
+- **Finding — `increment()` and the in-memory object.** After `entry.increment('version'); await entry.save(null,
+  {useMasterKey:true})`, the live server (7.5.2, MongoDB) left `entry.get('version')` at its old value, so `syncOp`
+  answered `version: 1` after an update while the row held 2 (the Conflict row recorded `serverVersion: 2`). The
+  local parse-server 7.5.4 on PostgreSQL returned the incremented value. First live `check-sync`: 16/19. Fix: re-read
+  the row after the save (one extra query, correct under concurrent updates of the same entry). Second run: 19/19
+  (`docs/evidence/check-sync-live-2026-10-23.log`).
+- `check-sync.mjs` no longer needs the master key: public sign-up for the throw-away user, owner reads through the
+  ACL, cleanup through the new `testCleanup` Cloud function (SETUP_ENABLED-gated, users younger than 2 h only).

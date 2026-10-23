@@ -1,0 +1,22 @@
+throw-away user 7AVKkSN1uI (check-sync-1792763295785) created
+PASS ensureUser answers for a signed-in user — {"userId":"7AVKkSN1uI","username":"check-sync-1792763295785","anonymous":false,"entries":0,"serverTime":"2026-10-23T13:48:16.350Z"}
+PASS ensureUser rejects anonymous calls — 209 Sign in to sync.
+PASS create applied with version 1 — {"entryKey":"ae95b646-abb1-4585-aa3d-5adbae53553d","amountCents":1234,"category":"Food","date":"2026-10-23","note":"lunch","version":1,"deletedAt":null,"updatedAt":"2026-10-23T13:48:16.762Z","createdAt":"2026-10-23T13:48:16.762Z"}
+PASS same opId again → duplicate opId, not applied (needs the UNIQUE index on AppliedOp.opId) — {"applied":false,"reason":"duplicate opId","version":1}
+PASS update with baseVersion 1 → version 2, no conflict
+PASS stale baseVersion → applied (LWW) + conflict recorded — {"reason":"stale baseVersion","baseVersion":1,"serverVersion":2,"opId":"f3dd8d30-6951-4ec2-9aa2-8e120b5c2da7","conflictId":"c25ECuFfpK"}
+PASS non-integer amountCents rejected (142) — amountCents must be a non-negative integer (cents).
+PASS listEntries returns the entry with a cursor
+PASS delete → tombstone with version 4 (stale base ignored)
+PASS update after delete → tombstone wins, conflict recorded
+PASS second delete is idempotent (version stays 4)
+PASS incremental pull includes the tombstone
+PASS create without amount/category/date rejected (142) — create requires amountCents, category and date.
+PASS direct Entry create rejected (CLP 119 or beforeSave) — 119 Permission denied for action create on class Entry.
+PASS direct Entry update rejected (119) — 119 Permission denied for action update on class Entry.
+PASS direct Entry delete rejected (119) — 119 Permission denied for action delete on class Entry.
+PASS AppliedOp is not readable by clients (119) — 119 Permission denied for action find on class AppliedOp.
+PASS the owner can read their own Entry rows (ACL)
+PASS the owner can read their Conflict rows (2 recorded) — 2 rows
+cleanup (testCleanup, no master key): {"Conflict":2,"AppliedOp":7,"Entry":1}, user 7AVKkSN1uI removed
+19 passed, 0 failed
