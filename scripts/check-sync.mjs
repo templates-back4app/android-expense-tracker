@@ -12,7 +12,8 @@ function check(name, ok, detail = '') {
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`);
 }
 const uuid = () => crypto.randomUUID();
-const fn = (name, params, session) => rest(env, 'POST', `/functions/${name}`, params, { session });
+// The REST API wraps a Cloud function result as { "result": ... }; unwrap it so checks see the function's own object.
+const fn = async (name, params, session) => (await rest(env, 'POST', `/functions/${name}`, params, { session })).result;
 
 const username = `check-sync-${Date.now()}`;
 const password = randomPassword();

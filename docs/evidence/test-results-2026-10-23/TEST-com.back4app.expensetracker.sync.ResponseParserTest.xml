@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.back4app.expensetracker.sync.ResponseParserTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-23T09:22:31.763Z" hostname="Georges-MacBook-Air-2.local" time="0.005">
+<testsuite name="com.back4app.expensetracker.sync.ResponseParserTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-23T13:29:45.993Z" hostname="Georges-MacBook-Air-2.local" time="0.006">
   <properties/>
   <testcase name="accepts dates as Date objects, ISO strings or Parse encoded maps" classname="com.back4app.expensetracker.sync.ResponseParserTest" time="0.005"/>
-  <testcase name="parses a pull page and tolerates garbage items" classname="com.back4app.expensetracker.sync.ResponseParserTest" time="0.0"/>
+  <testcase name="parses a pull page and tolerates garbage items" classname="com.back4app.expensetracker.sync.ResponseParserTest" time="0.001"/>
   <testcase name="parses a syncOp response with a conflict" classname="com.back4app.expensetracker.sync.ResponseParserTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

@@ -1,11 +1,13 @@
-# ls -l app/build/outputs/apk/*/*.apk · 2026-10-23T09:22:55Z
--rw-r--r--@ 1 georgeb  staff  13846018 Oct 23 11:22 app/build/outputs/apk/debug/app-debug.apk
--rw-r--r--@ 1 georgeb  staff   2082828 Oct 23 11:22 app/build/outputs/apk/release/app-release.apk
+# ls -l app/build/outputs/apk/*/*.apk · 2026-10-23T13:29:46Z · build after the emulator run (docs/notes/build-diary.md §14)
+-rw-r--r--@ 1 georgeb  staff  14325116 Oct 23 15:22 app/build/outputs/apk/debug/app-debug.apk
+-rw-r--r--@ 1 georgeb  staff   2083111 Oct 23 15:22 app/build/outputs/apk/release/app-release.apk
 
 # shasum -a 256
-a51ccebf7bfc3ea464d48d04c9472aacdd81a95d9054c522b998ee052b061362  app/build/outputs/apk/debug/app-debug.apk
-5e4aea2820868f0ec927b5b74030eee12230142fdb530f1c71c1a0e57b9cdf82  app/build/outputs/apk/release/app-release.apk
+2e787b700a13cda17d128f77d1f194b758f7e1097f2bf425f3abf70065762abc  app/build/outputs/apk/debug/app-debug.apk
+66f452004d27a07e10db888f6f6f25d7f2e48572c7bb06f0148110a49dc157c6  app/build/outputs/apk/release/app-release.apk
 
 # uncompressed size / file count
- 35010978                     152 files
-  3892387                     137 files
+ 35016684                     154 files
+  3893486                     138 files
+
+# previous build (morning of 2026-10-23, commit e0b2666): debug 13,846,018 B · release 2,082,828 B

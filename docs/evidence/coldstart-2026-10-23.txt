@@ -1,0 +1,11 @@
+# adb shell am start -W -n com.back4app.expensetracker.debug/com.back4app.expensetracker.MainActivity, 10 runs, am force-stop + 2 s between runs · 2026-10-23 13:27 UTC · debug build, AVD expense35 (Android 15, arm64, Pixel 6 profile) on an Apple Silicon Mac · p50 932 ms, min 872, max 1021
+TotalTime: 919
+TotalTime: 930
+TotalTime: 991
+TotalTime: 939
+TotalTime: 934
+TotalTime: 876
+TotalTime: 951
+TotalTime: 1021
+TotalTime: 872
+TotalTime: 910

@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.back4app.expensetracker.sync.SyncPlannerTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-10-23T09:22:31.770Z" hostname="Georges-MacBook-Air-2.local" time="0.003">
+<testsuite name="com.back4app.expensetracker.sync.SyncPlannerTest" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-10-23T13:29:46Z" hostname="Georges-MacBook-Air-2.local" time="0.005">
   <properties/>
   <testcase name="a queued delete drops queued updates but keeps the create" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="tombstone wins answer is recorded as a conflict and consumes the op" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
-  <testcase name="retry keeps the same opId and bumps attempts" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.001"/>
+  <testcase name="retry keeps the same opId and bumps attempts" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="an update after a queued delete is discarded and a second delete is a no-op" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="the cursor only moves forward" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="ops are drained oldest first and keep per-entry order" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
-  <testcase name="a local tombstone is kept until the server catches up" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
+  <testcase name="a local tombstone is kept until the server catches up" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.001"/>
   <testcase name="stale baseVersion is applied by the server and recorded locally as a conflict" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
+  <testcase name="later ops of the same entry are rebased on the version the completed op produced" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="unknown entries from a pull are inserted clean and stale pages are ignored" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
-  <testcase name="transient failures retry with the same key, permanent rejections drop the op" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.001"/>
+  <testcase name="transient failures retry with the same key, permanent rejections drop the op" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="a duplicate opId answer is a success, not a conflict" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
   <testcase name="a server tombstone wins over local edits and drops everything queued for that entry" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
-  <testcase name="a failed entry blocks only its own later ops" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
+  <testcase name="a failed entry blocks only its own later ops" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.001"/>
   <testcase name="server fields replace local ones when nothing else is queued" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
-  <testcase name="a cursor older than the tombstone retention forces a full pull" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.001"/>
-  <testcase name="local fields are kept while more ops are queued, but the version advances" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
+  <testcase name="a cursor older than the tombstone retention forces a full pull" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.0"/>
+  <testcase name="local fields are kept while more ops are queued, but the version advances" classname="com.back4app.expensetracker.sync.SyncPlannerTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

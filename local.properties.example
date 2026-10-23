@@ -4,6 +4,9 @@ sdk.dir=/Users/you/Library/Android/sdk
 # Back4app → App Settings → Security & Keys. Only these two; NEVER the master key.
 parse.appId=PASTE_APPLICATION_ID
 parse.clientKey=PASTE_CLIENT_KEY
+# Optional. Default: https://parseapi.back4app.com/. For the local dev server (scripts/dev-server.mjs) seen from the
+# Android emulator: parse.serverUrl=http://10.0.2.2:1339/ (debug builds allow cleartext to 10.0.2.2 only).
+#parse.serverUrl=http://10.0.2.2:1339/
 
 # Optional release signing (see README "Release build"):
 # release.storeFile=keystore/release.jks

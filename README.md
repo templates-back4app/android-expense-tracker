@@ -25,6 +25,8 @@ Parse Android SDK 4.4 · Cloud Code for Parse Server 7 (Node 19) · AGP 8.13 · 
    Both come from your Back4app app → *App Settings → Security & Keys*. Only these two. **Never the master key** — it
    has no place in an app. (Alternative: copy `app/src/main/assets/backend.properties.example` to `backend.properties`
    next to it; both files are gitignored.) Rebuild after changing them: they are compiled into `BuildConfig`.
+   An optional `parse.serverUrl=` (or `serverUrl=` in the assets file) points the app at another Parse Server, e.g. the
+   local one below.
 4. **Run** (▶) on a device or emulator with Android 8.0+ (API 26). Tap *Continue as guest* and add an expense.
    Turn airplane mode on, add another — it saves instantly; turn it off — the "unsynced" counter drops to zero.
 
@@ -40,7 +42,7 @@ every sync attempt fails with *141 Invalid function* in Settings → Sync.
 | JDK | 25 (JetBrains Runtime bundled with Android Studio) | no separate JDK install; on the command line set `JAVA_HOME` to `…/Android Studio.app/Contents/jbr/Contents/Home` (macOS) |
 | Android SDK | platform 35, build-tools 35.0.0, platform-tools | Android Studio installs them on first sync; command-line recipe in `docs/notes/build-diary.md` |
 | Gradle | 9.5.1 (wrapper, downloaded automatically) | why not 8.x / 9.8: see *Toolchain notes* |
-| Device / emulator | Android 8.0+ (API 26) | the repository was built without one — see *What is not verified* |
+| Device / emulator | Android 8.0+ (API 26) | tested on the emulator (Android 15, arm64) — see *What was verified* |
 | Node.js | 20+ | only for the two backend scripts |
 | Back4app account | free plan is enough | https://www.back4app.com/ |
 
@@ -71,20 +73,45 @@ release.keyPassword=...
 
 ## Backend (one-time, ~10 minutes)
 
-1. Create a Back4app app (*Build your Backend*). Copy the Application ID, Client key, REST key and master key.
-2. `cp .env.example .env` and paste `APP_ID`, `REST_KEY`, `MASTER_KEY` (scripts only; the app never sees this file).
-3. `node scripts/setup.mjs` — creates the classes `Entry`, `AppliedOp`, `Conflict` with fields, indexes and class-level
-   permissions (signed-in users can *read*, nobody can *write* from a client).
-4. Dashboard → **Cloud Code** → *Upload* → `cloud/main.js` → confirm the badge *Files pending deploy (1)* → *Deploy*.
-   Run `node scripts/setup.mjs` again: it prints `Status now: LIVE` when the function answers. (A freshly created backend
-   sometimes reports "Success" while deploying nothing — reload the page, make the file dirty, deploy again.)
-5. Dashboard → **Database** → `AppliedOp` → *Index Manager* → new index `{opId: 1}` with **Unique**. The schema API
+1. Create a Back4app app (*Build your Backend*). Copy the Application ID, Client key and REST key. The master key can
+   stay in the dashboard: nothing below needs it on your machine (it is only required for `check-sync.mjs`).
+2. `cp .env.example .env` and paste `APP_ID` and `REST_KEY` (scripts only; the app never sees this file).
+3. Dashboard → **Cloud Code** → *Upload* → `cloud/main.js` **and** `cloud/config.js` → confirm the badge *Files pending
+   deploy (2)* → *Deploy*. (A freshly created backend sometimes reports "Success" while deploying nothing — reload the
+   page, make the files dirty, deploy again; `node scripts/setup.mjs` prints `Status now: LIVE` once the functions answer.)
+4. `node scripts/setup.mjs` — without `MASTER_KEY` in `.env` it calls the Cloud function `setupSchema` (REST key), which
+   creates the classes `Entry`, `AppliedOp`, `Conflict` with their fields and class-level permissions using the master
+   key *inside* Cloud Code (signed-in users can *read*, nobody can *write* from a client). Idempotent: rerun at will;
+   it only adds missing fields and never touches indexes. With `MASTER_KEY` set, the same table is applied through the
+   schema API directly (plus a few plain performance indexes).
+5. `cloud/config.js` → `SETUP_ENABLED: false` → *Deploy* again. While the flag is on, anyone with the Application ID can
+   call `setupSchema`; it re-applies the intended permissions and nothing else, but close it before real users sign up.
+6. Dashboard → **Database** → `AppliedOp` → *Index Manager* → new index `{opId: 1}` with **Unique**. The schema API
    cannot create unique indexes, and this one is what makes retries idempotent (details below).
-6. `node scripts/check-sync.mjs` — creates a throw-away user, runs the whole contract (create, duplicate retry, update,
-   stale update, delete, edit-after-delete, pull with tombstones, client-write lockdown), deletes everything it made and
-   prints `N passed, 0 failed`.
-7. Optional: schedule the `purgeTombstones` job daily (Dashboard → Cloud Code → Jobs, or `POST /jobs/purgeTombstones`
+7. `node scripts/check-sync.mjs` (needs `MASTER_KEY` in `.env`, delete it afterwards if you like) — creates a throw-away
+   user, runs the whole contract (create, duplicate retry, update, stale update, delete, edit-after-delete, pull with
+   tombstones, client-write lockdown), deletes everything it made and prints `19 passed, 0 failed`.
+8. Optional: schedule the `purgeTombstones` job daily (Dashboard → Cloud Code → Jobs, or `POST /jobs/purgeTombstones`
    with the master key from any cron).
+
+### No Back4app account yet? Run the backend locally
+
+`scripts/dev-server.mjs` starts Parse Server 7.5.4 with the Postgres adapter on `http://localhost:1339/` and mounts the
+same `cloud/main.js`. Needs Node 20+ and a PostgreSQL on port 5433 (`brew install postgresql@17`).
+
+```bash
+npm install                                  # parse-server + express (dev dependencies, ~190 MB)
+cp .env.example .env                         # APP_ID=anything, random CLIENT_KEY/REST_KEY/MASTER_KEY, SERVER_URL=http://localhost:1339/
+npm run dev:server                           # creates the database expense_dev if missing
+node scripts/setup.mjs                       # master path (MASTER_KEY is in .env)
+psql -p 5433 expense_dev -c 'CREATE UNIQUE INDEX IF NOT EXISTS "AppliedOp_opId_uniq" ON "AppliedOp" ("opId")'
+node scripts/check-sync.mjs                  # 19 passed, 0 failed
+```
+
+Then point the app at it: `app/src/main/assets/backend.properties` with `appId`, `clientKey` from `.env` and
+`serverUrl=http://10.0.2.2:1339/` (the host as seen from the Android emulator). Debug builds allow plain HTTP to
+`10.0.2.2`/`localhost` only (`app/src/debug/res/xml/network_security_config.xml`); release builds stay HTTPS-only.
+This is how everything in `docs/evidence/emulator-run-2026-10-23.md` was produced.
 
 Users: e-mail/password accounts are created from the app's Login screen (*Create an account instead*); guests are
 anonymous Parse users. Each user only ever sees their own rows (object ACL set by the Cloud function).
@@ -114,6 +141,10 @@ is detail:
   delete throws away queued edits of the same entry — but keeps a queued create, so the server reaches the tombstone too.
   Tombstones are purged after **90 days** by the `purgeTombstones` job; a device offline longer than that does a full
   pull and drops the clean rows the server no longer returns.
+- **Chained offline ops stay conflict-free.** Create → edit → edit of one entry while offline queues three ops whose
+  base versions were all taken before anything synced (0, 0, 0). When an op completes with server version *V*, the
+  still-queued ops of that entry are rebased to *V* (`SyncPlanner.rebase`), because on one device they were built on
+  top of each other. Without that rule the emulator run recorded a "stale baseVersion" conflict for every chained op.
 - **Pull reconciles other devices.** `listEntries({since})` returns the caller's entries (tombstones included) with
   `updatedAt >= since`, 500 per page; the phone merges them (`SyncPlanner.apply`) and stores the newest `updatedAt` as
   its cursor. While an entry still has queued ops, the pull keeps the local field values and only adopts the version.
@@ -151,11 +182,13 @@ app/src/main/java/com/back4app/expensetracker/
   sync/                    SyncPlanner (the rules, pure), SyncEngine (push then pull), SyncWorker, SyncScheduler, models, codecs
   ui/                      AppNav (routes), ViewModels, screens/ (Login, Entries, EntryForm, Categories, Settings, CategoryBarChart)
 app/src/test/              JVM tests: MoneyTest, SyncPlannerTest, FieldsCodecTest, ResponseParserTest
+app/src/debug/             debug-only manifest + network security config (cleartext to 10.0.2.2 for the local server)
 app/schemas/               Room schema JSON (exported; version 1)
-cloud/main.js              Cloud Code: syncOp, listEntries, ensureUser, beforeSave/beforeDelete guards, purgeTombstones job
-scripts/                   setup.mjs (schema + CLP), check-sync.mjs (contract check), lib.mjs
-docs/notes/build-diary.md  every download and install step, dated, with sizes
-docs/evidence/             build/test logs and what could not be verified
+cloud/main.js              Cloud Code: syncOp, listEntries, ensureUser, setupSchema, beforeSave/beforeDelete guards, purgeTombstones job
+cloud/config.js            deploy-time switch SETUP_ENABLED (upload next to main.js)
+scripts/                   setup.mjs (schema + CLP, via setupSchema or the master key), check-sync.mjs (contract check), dev-server.mjs (local Parse Server), lib.mjs
+docs/notes/build-diary.md  every download, install, build and fix step, dated, with sizes
+docs/evidence/             build/test logs, the emulator run, the offline matrix, screenshots, cold start
 AGENTS.md                  the same information, written for an agent that has to redo it
 ```
 
@@ -165,12 +198,20 @@ Recurring expenses, multiple currencies, income, attachments/receipts, charts be
 password reset UI, account linking of guests to e-mail accounts, multi-user sharing, the Parse Local Datastore (the
 outbox is Room, by design), Hilt/Koin, and any conflict-resolution UI.
 
-## What is not verified
+## What was verified, and what was not
 
-This repository was built and tested on a Mac with the Android SDK command-line tools only — **no emulator image, no
-device**. `assembleDebug`, `assembleRelease` and `test` pass (`docs/evidence/`). The screens compile and the sync rules
-are unit tested, but nobody has tapped through the app yet: WorkManager scheduling, the Parse SDK calls and the Canvas
-chart are untested at runtime. If you run it first, open an issue with what you see.
+On 2026-10-23 the app ran on the Android emulator (Pixel 6 profile, Android 15, arm64) against a **local** Parse Server
+7.5.4 + PostgreSQL, driven with `adb`: guest sign-in, categories, three entries (one with a decimal amount), totals,
+budget bar and chart, nine offline operations (create/edit/delete and their chains) drained once after reconnecting,
+a second client editing the same account (pull reconciles; a genuine concurrent edit is applied last-arrival-wins and
+recorded as a conflict), the server being unreachable for 60 s (worker retry with the same `opId`), and an app kill /
+emulator reboot with queued ops. Details, timestamps and screenshots: `docs/evidence/emulator-run-2026-10-23.md` and
+`docs/evidence/offline-matrix.md`. Cold start on that emulator: p50 932 ms over 10 runs (debug build — compare only
+against itself). Five bugs found by that run are fixed and listed in `docs/notes/build-diary.md` §12.
+
+**Not verified**: the real Back4app backend (MongoDB, TLS, the dashboard steps above, `setupSchema` through the live
+app), a physical device, session expiry on the worker path, and the 90-day tombstone purge / full pull (unit-tested
+rule only).
 
 ## Toolchain notes
 

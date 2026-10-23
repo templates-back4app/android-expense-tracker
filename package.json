@@ -2,12 +2,19 @@
   "name": "android-expense-tracker-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Back4app setup and verification scripts for the Android expense tracker (the app itself is Gradle).",
+  "description": "Back4app setup and verification scripts for the Android expense tracker, plus a local Parse Server for development (the app itself is Gradle).",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "check:sync": "node scripts/check-sync.mjs"
+    "check:sync": "node scripts/check-sync.mjs",
+    "dev:server": "node scripts/dev-server.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "express": "^5.3.0",
+    "parse-server": "^7.5.4"
+  }
 }

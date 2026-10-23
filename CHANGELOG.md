@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased] — 2026-10-23 (versionName still 0.1.0; bump when releasing)
+
+First run on an emulator (Android 15, arm64) against a local Parse Server 7.5.4 + PostgreSQL; evidence in
+`docs/evidence/emulator-run-2026-10-23.md`, `docs/evidence/offline-matrix.md` and `docs/evidence/screens/`.
+
+### Fixed
+- `SyncEngine` ran all three push/pull passes on every run (`return@repeat` never left the loop): three `listEntries`
+  per write. Now one.
+- Chained offline operations on one entry (create → edit, edit → edit) were reported as "stale baseVersion" conflicts.
+  `SyncPlanner.rebase` rebases still-queued ops of an entry to the version the completed op produced, in Room and in the
+  engine's in-memory queue. Unit test added.
+- Settings showed "syncing…" while offline; WorkManager's ENQUEUED (constraints unmet / backoff) is no longer counted as
+  running — the screen says "waiting for network / retry".
+- The category picker on the entry form was invisible to accessibility services (an unnamed clickable overlay); it now
+  exposes "Category: <name>" with a dropdown role.
+- `scripts/check-sync.mjs` compared the REST envelope `{"result": …}` instead of the Cloud function result (it had never
+  been run); 19/19 now.
+
+### Added
+- Cloud function `setupSchema` (classes, fields, CLPs through `Parse.Schema` with the master key inside Cloud Code;
+  adds only, never touches indexes), guarded by `SETUP_ENABLED` in the new `cloud/config.js`. `scripts/setup.mjs` uses
+  it when `MASTER_KEY` is absent, so a Back4app backend can be set up with the REST key alone.
+- `scripts/dev-server.mjs` (`npm run dev:server`): local Parse Server 7.5.4 with the Postgres adapter and the same Cloud
+  Code; `cloud/package.json` (`"type": "commonjs"`) so Node loads `cloud/*.js` the way Back4app does.
+- Debug-only network security config allowing cleartext to `10.0.2.2`/`localhost`; optional `parse.serverUrl` in
+  `local.properties`.
+- Evidence: emulator run log, offline matrix, 9 screenshots, cold-start measurements, local `check-sync` log.
+
 ## [0.1.0] — 2026-10-23
 
 First release — the companion repository for the article "Android expense tracker app with source code (Kotlin +

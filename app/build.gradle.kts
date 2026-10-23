@@ -31,7 +31,8 @@ android {
         versionName = "0.1.0"
         buildConfigField("String", "PARSE_APP_ID", "\"${localProp("parse.appId")}\"")
         buildConfigField("String", "PARSE_CLIENT_KEY", "\"${localProp("parse.clientKey")}\"")
-        buildConfigField("String", "PARSE_SERVER_URL", "\"https://parseapi.back4app.com/\"")
+        // Optional parse.serverUrl in local.properties (e.g. http://10.0.2.2:1339/ for scripts/dev-server.mjs from the emulator).
+        buildConfigField("String", "PARSE_SERVER_URL", "\"${localProp("parse.serverUrl").ifEmpty { "https://parseapi.back4app.com/" }}\"")
     }
 
     signingConfigs {

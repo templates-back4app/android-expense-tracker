@@ -67,6 +67,10 @@ interface OpDao {
     @Query("UPDATE ops SET attempts = :attempts WHERE opId = :opId")
     suspend fun setAttempts(opId: String, attempts: Int)
 
+    /** SyncPlanner.rebase as SQL: later ops of the same entry were built on top of the one that just completed. */
+    @Query("UPDATE ops SET baseVersion = :version WHERE entryKey = :entryKey AND baseVersion IS NOT NULL")
+    suspend fun rebase(entryKey: String, version: Int)
+
     @Query("SELECT COUNT(*) FROM ops")
     fun observeCount(): Flow<Int>
 

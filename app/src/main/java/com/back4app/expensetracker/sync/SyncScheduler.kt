@@ -44,9 +44,12 @@ class SyncScheduler(context: Context) {
         workManager.cancelUniqueWork(SYNC_PERIODIC)
     }
 
-    /** True while the one-time sync is running or waiting for network/backoff. */
+    /**
+     * True only while the one-time sync is actually running. ENQUEUED also covers "constraints not met" (offline)
+     * and backoff, which the Settings screen reports as "waiting for network / retry" from the pending count.
+     */
     fun observeSyncing(): Flow<Boolean> = workManager.getWorkInfosForUniqueWorkFlow(SYNC_NOW).map { infos ->
-        infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+        infos.any { it.state == WorkInfo.State.RUNNING }
     }
 
     private companion object {

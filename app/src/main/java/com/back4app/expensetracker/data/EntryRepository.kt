@@ -95,7 +95,10 @@ class EntryRepository(
         db.withTransaction {
             db.ops().delete(op.opId)
             outcome.conflict?.let { db.conflicts().insert(it.toEntity()) }
-            outcome.entry?.let { applyServerEntryInTx(it) }
+            outcome.entry?.let {
+                applyServerEntryInTx(it)
+                db.ops().rebase(op.entryKey, it.version) // see SyncPlanner.rebase
+            }
         }
     }
 

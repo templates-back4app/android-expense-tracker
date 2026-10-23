@@ -21,7 +21,7 @@ class SyncEngine(
         var outcome = Outcome.OK
         var lastError: String? = null
         try {
-            repeat(MAX_PASSES) {
+            for (pass in 1..MAX_PASSES) {
                 val push = push()
                 if (push.unauthenticated) {
                     settings.lastSyncError = "Signed out on the server (session expired)."
@@ -33,7 +33,8 @@ class SyncEngine(
                 }
                 pull()
                 // Another write may have landed while we were busy; loop while we are still making progress.
-                if (push.sent == 0 || repo.pendingCount() == 0) return@repeat
+                // (A `return@repeat` here only skipped the rest of the iteration: every run did all passes.)
+                if (push.sent == 0 || repo.pendingCount() == 0) break
             }
         } catch (e: SyncGateway.Failure) {
             Log.w(ExpenseApp.TAG, "sync failed: ${e.message}")
@@ -60,6 +61,9 @@ class SyncEngine(
                 val done = SyncPlanner.outcome(op, response)
                 repo.completeOp(op, done)
                 sent++
+                // The list in hand was loaded before this op completed: rebase it like the repository rebased the rows,
+                // or the next op of the same entry is sent with the base it had before this one existed.
+                response.entry?.let { remaining = SyncPlanner.rebase(remaining, op.entryKey, it.version) }
                 if (response.entry?.deletedAt != null) remaining = SyncPlanner.dropSupersededByTombstone(remaining, op.entryKey)
             } catch (e: SyncGateway.Failure) {
                 if (e.code == 209) return PushResult(sent, blocked, e.message, unauthenticated = true)

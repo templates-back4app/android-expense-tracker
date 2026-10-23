@@ -154,3 +154,123 @@ nothing, so it was redone with `--no-build-cache --no-configuration-cache` — t
   live backend. The Cloud Code `syncOp` is the feasibility-lab function (which *was* exercised there) with the four
   expense fields and plain-JSON responses.
 - Nothing pushed; no GitHub repository created.
+
+---
+
+# Build diary, part 2 — emulator run against a local Parse Server (2026-10-23, 12:50–13:30 UTC)
+
+Same machine as part 1. Goal: run the app for the first time, against a *local* Parse Server 7.5.4 (no Back4app
+account was available), exercise the whole flow with `adb`, capture screenshots and record the offline matrix.
+Outcomes per step are in `docs/evidence/emulator-run-2026-10-23.md`; per-cell results in
+`docs/evidence/offline-matrix.md`. This section is about what had to be installed, built and fixed.
+
+## 9. Emulator and system image (12:51–12:59)
+
+```
+$ yes | sdkmanager --sdk_root=$ANDROID_HOME "emulator" "system-images;android-35;google_apis;arm64-v8a"
+```
+
+`--no-metrics` is not accepted by cmdline-tools 23.0 (`Unknown option`), despite what the deprecation banner suggests;
+the plain invocation works and accepts the licenses itself. Wall time **7 m 29 s** (12:51:28 → 12:58:57), both
+archives downloaded in parallel, then unzipped:
+
+| Package | Revision | Archive | Download (`Content-Length`) | On disk |
+|---|---|---|---|---|
+| emulator | 37.2.12 (build 16428233) | `emulator-darwin_aarch64-16428233.zip` | 416,112,708 B | 1,250 MB |
+| system-images;android-35;google_apis;arm64-v8a | 9 | `sys-img/google_apis/arm64-v8a-35_r09.zip` | 1,778,933,980 B | 3,884 MB |
+
+`~/Library/Android/sdk` grew from 526 MB to **5,660 MB**. The `google_apis` image (not `google_apis_playstore`) is
+enough: no Play Services are needed, and it allows `adb root` if ever required.
+
+```
+$ echo no | avdmanager create avd -n expense35 -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_6
+$ emulator -avd expense35 -no-snapshot -no-audio -no-boot-anim -no-window &      # headless
+$ adb wait-for-device; until [ "$(adb shell getprop sys.boot_completed)" = 1 ]; do sleep 2; done
+```
+
+Pixel 6 profile: 1080×2400 @ 420 dpi, 2 GB RAM in `config.ini` (the emulator raised it to 2,560 MB on its own).
+Cold boot to `sys.boot_completed=1`: **18 s** (12:59:28 → 12:59:46); a second boot later in the session took 14 s.
+Android 15 (API 35), `sdk_gphone64_arm64`. The app, its Room database and the Parse session survived an emulator
+restart (`-no-snapshot` only skips the QEMU snapshot; the userdata image persists).
+
+## 10. Local backend: parse-server 7.5.4 + PostgreSQL 17 (12:53–12:56)
+
+`npm install --save-dev parse-server@7.5.4 express@^5.1.0` — 31 s, 692 packages, 193 MB in `node_modules/`
+(`npm audit` reports 29 advisories in that tree, all in server-side dev dependencies; nothing of it ships in the app).
+`scripts/dev-server.mjs` is the same pattern as the sibling starters: Postgres adapter on `localhost:5433`,
+`createdb expense_dev` when missing, `cloud/main.js` mounted, `allowClientClassCreation: false`, anonymous users on,
+master key accepted from localhost only, one log line per request so the diary can show what the app really sent.
+`SERVER_URL=http://localhost:1339/` mounts Parse at the root, which is the URL shape the emulator uses
+(`http://10.0.2.2:1339/` in `app/src/main/assets/backend.properties`, gitignored).
+
+```
+$ node scripts/setup.mjs                      # 3 classes created; "Status now: LIVE"
+$ psql -p 5433 expense_dev -c 'CREATE UNIQUE INDEX IF NOT EXISTS "AppliedOp_opId_uniq" ON "AppliedOp" ("opId")'
+$ node scripts/check-sync.mjs                 # 19 passed, 0 failed  (docs/evidence/check-sync-local-2026-10-23.log)
+```
+
+The unique index is the one thing the schema API cannot create; locally it is one SQL statement, on Back4app it is
+Dashboard → Database → `AppliedOp` → Index Manager → `{opId: 1}` UNIQUE. Postgres maps the violation (`23505`) to
+Parse error 137 `DUPLICATE_VALUE`, exactly what `syncOp` expects; `check-sync` proves it ("same opId again →
+duplicate opId").
+
+Bug found on the first run of `check-sync.mjs` (it had only ever been syntax-checked): the REST API wraps a Cloud
+function's return value as `{"result": …}` and the script compared the envelope — 6 of 8 checks failed with
+`FAIL create applied with version 1`. One line (`fn` now returns `.result`); after that 19/19.
+
+## 11. Pointing the debug build at 10.0.2.2 (12:56)
+
+Android 9+ blocks cleartext HTTP by default, and the local server has no TLS. Added, **debug source set only**:
+`app/src/debug/res/xml/network_security_config.xml` (cleartext permitted for `10.0.2.2`, `localhost`, `127.0.0.1`,
+everything else stays HTTPS-only) and `app/src/debug/AndroidManifest.xml` that references it. Release builds do not
+contain the file (`apkanalyzer manifest print app-release.apk` shows no `networkSecurityConfig`). `local.properties`
+gained an optional `parse.serverUrl` (→ `BuildConfig.PARSE_SERVER_URL`); the assets file already had `serverUrl`.
+`assembleDebug` with these changes: 13 s (warm daemon), APK 14,325,116 B; `adb install -r`: < 1 s.
+
+## 12. Bugs found by running the app (13:00–13:25)
+
+Everything below was invisible to `assembleDebug`, `test` and `check-sync`; it took the emulator.
+
+1. **Every sync run pulled three times.** The dev-server log showed `syncOp` followed by three `listEntries` for a
+   single write. `SyncEngine.run()` used `repeat(MAX_PASSES) { …; if (nothing left) return@repeat }` — `return@repeat`
+   only ends the current iteration, so all three passes always ran. Now a `for` loop with `break`. After the fix: one
+   `listEntries` per run (log at 13:14:23).
+2. **Spurious conflicts for chained offline ops.** Offline create → edit of the same entry, or edit → edit, produced a
+   `Conflict` row ("stale baseVersion", base v0 vs server v1 / base v1 vs server v2) although no other device wrote. The
+   second op carried the base version the device had seen *before* the chain (0 for an unsynced create). Fix:
+   `SyncPlanner.rebase()` — when an op completes with server version V, every still-queued op of the same entry is
+   rebased to V — applied to the rows (`OpDao.rebase`, in `EntryRepository.completeOp`) **and** to the list
+   `SyncEngine.push()` holds in memory. The first attempt fixed only the rows and the engine kept sending the stale
+   in-memory copy (conflicts 3 → 5 at 13:20:58); the second attempt (13:22) fixed both: conflicts stayed at 5 through
+   create+edit (v2) and edit+edit (v3 → v5). Unit test added (`later ops of the same entry are rebased…`). A genuine
+   concurrent edit from another device is still recorded (cell J2 in the matrix: base v4 vs server v5).
+3. **Settings said "syncing…" while offline.** `observeSyncing()` counted WorkManager's `ENQUEUED` state, which also
+   means "constraints not met" (airplane mode) and "backoff". Now only `RUNNING`; offline shows "waiting for network /
+   retry" (screenshot `04b-settings-offline.png`).
+4. **Category picker invisible to accessibility.** The transparent clickable `Box` over the read-only category field
+   had no semantics, so `uiautomator dump` (and TalkBack) saw neither the label nor the value. The overlay now carries
+   `contentDescription = "Category: <name>"`, `Role.DropdownList` and an `onClickLabel`.
+5. **`cloud/main.js` loaded as ESM locally.** The root `package.json` has `"type": "module"` (for the scripts), so
+   parse-server `import()`ed `cloud/main.js` as an ES module where `require` is undefined — the new
+   `require('./config.js')` threw and the `SETUP_ENABLED` guard silently fell back to its default (observed: the
+   function still answered with `SETUP_ENABLED: false`). `cloud/package.json` with `"type": "commonjs"` makes the
+   folder CommonJS, which is what Back4app runs anyway. Guard verified afterwards: `119 setupSchema is disabled`.
+
+Operational note, for the next agent: `pkill -f '<pattern>'` from the tool shell matched the shell's own command line
+(it contains the pattern text) and killed the emulator and both dev servers with it (13:14:51). Kill by PID
+(`pgrep -f '^node scripts/dev-server.mjs'`, `adb emu kill`) instead.
+
+## 13. `setupSchema` Cloud function (13:11–13:19)
+
+Added at the coordinator's request so a Back4app backend can be set up without the master key ever leaving the
+dashboard: `setupSchema()` applies the same classes/fields/CLPs as `scripts/setup.mjs` with `Parse.Schema` (master
+key inside Cloud Code), adds only missing fields, never touches indexes, and is guarded by `SETUP_ENABLED` in
+`cloud/config.js`. `scripts/setup.mjs` uses it when `MASTER_KEY` is absent (REST key only). Verified on a second local
+server with an empty database (`PARSE_PORT=1340 … DATABASE_URL=…/expense_setup_test`): first run "created (8/4/8
+fields)", second run "updated (0 new fields)", CLPs byte-identical to the master path, then `check-sync.mjs` 19/19
+against it; with the flag off: `119 setupSchema is disabled`.
+
+## 14. Final builds (13:22)
+
+`./gradlew test assembleDebug assembleRelease`: 28 s, 29 tests, 0 failed. `app-debug.apk` 14,325,116 B,
+`app-release.apk` 2,083,111 B (+283 B vs the 2026-10-23 morning build: the semantics strings and the rebase code).

@@ -21,3 +21,6 @@ app/src/main/assets/backend.properties
 
 # Cloud Code tooling
 node_modules/
+
+# parse-server (scripts/dev-server.mjs) writes its logs here
+logs/

@@ -159,6 +159,26 @@ class SyncPlannerTest {
     }
 
     // ---- pull cursor --------------------------------------------------------------------------------------------
+    @Test fun `later ops of the same entry are rebased on the version the completed op produced`() {
+        // offline: create A, edit A, edit A again; create B — all queued, A's edits carry baseVersion 0
+        val queue = listOf(
+            op("a1", "A", OpType.CREATE, at = 10),
+            op("a2", "A", OpType.UPDATE, at = 20, base = 0, fields = mapOf("amountCents" to 3300L)),
+            op("a3", "A", OpType.UPDATE, at = 30, base = 0, fields = mapOf("note" to "x")),
+            op("b1", "B", OpType.UPDATE, at = 40, base = 7),
+        )
+        // the create was applied: server says version 1
+        val afterCreate = SyncPlanner.rebase(queue.drop(1), "A", 1)
+        assertEquals(listOf(1, 1, 7), afterCreate.map { it.baseVersion })
+        assertEquals("a2", afterCreate[0].opId)
+        // a2 applied with base 1 -> version 2; a3 is now based on 2 (no spurious conflict)
+        val afterA2 = SyncPlanner.rebase(afterCreate.drop(1), "A", 2)
+        assertEquals(listOf(2, 7), afterA2.map { it.baseVersion })
+        // a delete carries no meaningful base, nulls stay null
+        val withDelete = SyncPlanner.rebase(listOf(op("d", "A", OpType.DELETE, at = 50, base = null)), "A", 3)
+        assertNull(withDelete[0].baseVersion)
+    }
+
     @Test fun `the cursor only moves forward`() {
         assertEquals(1_000L, SyncPlanner.advanceCursor(null, listOf(server("A", 1, updatedAt = 1_000L))))
         assertEquals(1_000L, SyncPlanner.advanceCursor(1_000L, listOf(server("A", 1, updatedAt = 900L))))

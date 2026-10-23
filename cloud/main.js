@@ -1,10 +1,12 @@
 // cloud/main.js — Cloud Code for the Android expense tracker (Parse Server 7.x on Back4app, CommonJS, Node 19).
 //
-// Upload this single file in Dashboard → Cloud Code (no package.json needed). Three functions, one job:
+// Upload this file and cloud/config.js in Dashboard → Cloud Code (no package.json needed). Four functions, one job:
 //
 //   syncOp({ opId, entryId, baseVersion, fields, op })  the ONLY write path for Entry (contract below)
 //   listEntries({ since, limit })                       pull: entries of the caller updated since a cursor, tombstones included
 //   ensureUser()                                        cheap "keys + session work" probe; returns the caller's profile
+//   setupSchema()                                       idempotent: classes, fields and CLPs (same as scripts/setup.mjs),
+//                                                       with the master key inside Cloud Code; guarded by cloud/config.js
 //   job purgeTombstones                                 physically removes tombstones older than TOMBSTONE_RETENTION_DAYS
 //
 // syncOp contract (identical to the feasibility lab):
@@ -29,6 +31,10 @@ const TOMBSTONE_RETENTION_DAYS = 90;
 const LIST_LIMIT_DEFAULT = 500;
 const LIST_LIMIT_MAX = 1000;
 const M = { useMasterKey: true };
+
+// Deploy-time switches (cloud/config.js). Absent file = defaults.
+let CONFIG = { SETUP_ENABLED: true };
+try { CONFIG = { ...CONFIG, ...require('./config.js') }; } catch (e) { /* no config.js uploaded: defaults apply */ }
 
 function fail(code, message) {
   throw new Parse.Error(code, message);
@@ -211,6 +217,65 @@ Parse.Cloud.define('ensureUser', async (req) => {
     entries: await countQ.count(M),
     serverTime: new Date().toISOString(),
   };
+});
+
+// ---- setupSchema ------------------------------------------------------------------------------------------------
+// The classes, fields and class-level permissions the app needs. Keep in step with scripts/setup.mjs (same table).
+// Indexes are NOT declared here on purpose: the schema API cannot express UNIQUE, and the one index that matters —
+// AppliedOp.opId UNIQUE — is created in Dashboard → Database → AppliedOp → Index Manager. (setup.mjs declares the
+// plain performance indexes when it runs with the master key; they are optional.)
+const NO_CLIENT_WRITES = { create: {}, update: {}, delete: {}, addField: {}, protectedFields: { '*': [] } };
+const AUTH_READ = { find: { requiresAuthentication: true }, get: { requiresAuthentication: true }, count: { requiresAuthentication: true } };
+const MASTER_ONLY = { find: {}, get: {}, count: {}, ...NO_CLIENT_WRITES };
+const SCHEMAS = {
+  Entry: {
+    fields: {
+      entryKey: { type: 'String' }, amountCents: { type: 'Number' }, category: { type: 'String' }, date: { type: 'String' },
+      note: { type: 'String' }, version: { type: 'Number' }, deletedAt: { type: 'Date' }, owner: { type: 'Pointer', targetClass: '_User' },
+    },
+    classLevelPermissions: { ...AUTH_READ, ...NO_CLIENT_WRITES },
+  },
+  AppliedOp: {
+    fields: { opId: { type: 'String' }, op: { type: 'String' }, entryKey: { type: 'String' }, owner: { type: 'Pointer', targetClass: '_User' } },
+    classLevelPermissions: MASTER_ONLY,
+  },
+  Conflict: {
+    fields: {
+      entryKey: { type: 'String' }, opId: { type: 'String' }, baseVersion: { type: 'Number' }, serverVersion: { type: 'Number' },
+      fields: { type: 'Object' }, reason: { type: 'String' }, owner: { type: 'Pointer', targetClass: '_User' },
+      entry: { type: 'Pointer', targetClass: 'Entry' },
+    },
+    classLevelPermissions: { ...AUTH_READ, ...NO_CLIENT_WRITES },
+  },
+};
+
+function addField(schema, name, def) {
+  if (def.type === 'Pointer') schema.addPointer(name, def.targetClass);
+  else schema.addField(name, def.type);
+}
+
+// Idempotent: creates missing classes, adds missing fields (never removes or retypes one), re-applies the CLPs,
+// leaves indexes alone. Runs with the master key because Parse.Schema does so inside Cloud Code; the caller needs
+// nothing but the Application ID (+ REST or Client key). Guarded by SETUP_ENABLED in cloud/config.js — set it to
+// false and redeploy once the backend is set up.
+Parse.Cloud.define('setupSchema', async () => {
+  if (!CONFIG.SETUP_ENABLED) fail(Parse.Error.OPERATION_FORBIDDEN, 'setupSchema is disabled (cloud/config.js SETUP_ENABLED=false).');
+  const report = [];
+  for (const [className, spec] of Object.entries(SCHEMAS)) {
+    const schema = new Parse.Schema(className);
+    let existing = null;
+    try { existing = await schema.get(); } catch (e) { if (e.code !== Parse.Error.INVALID_CLASS_NAME) throw e; }
+    const added = [];
+    for (const [name, def] of Object.entries(spec.fields)) {
+      if (existing && existing.fields && existing.fields[name]) continue;
+      addField(schema, name, def);
+      added.push(name);
+    }
+    schema.setCLP(spec.classLevelPermissions);
+    if (existing) await schema.update(); else await schema.save();
+    report.push({ className, action: existing ? 'updated' : 'created', addedFields: added, clp: 'applied' });
+  }
+  return { ok: true, classes: report, note: 'Indexes are not managed here: create the UNIQUE index on AppliedOp.opId in Dashboard → Database → Index Manager.' };
 });
 
 // Entry/AppliedOp/Conflict are written only by this file (master key). Any direct client write — even if a CLP or ACL

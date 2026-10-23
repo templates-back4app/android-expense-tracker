@@ -1,0 +1,11 @@
+Live idempotency probe — backend expense-tracker (parseapi.back4app.com), 2026-10-23 13:13 UTC
+User: seed-index-user (ordinary session token, no master key). Unique index on AppliedOp.opId created in the Index Manager.
+
+1) Same opId sent twice, sequentially (opId idem-live-0001, op create, entryId exp-idem-0001):
+   call 1 -> applied:true,  entry version 1, createdAt 2026-10-23T13:13:01.443Z   [0.228 s]
+   call 2 -> applied:false, reason "duplicate opId", same entry returned (no second row)   [0.249 s]
+
+2) Same opId sent twice in parallel (opId idem-live-0002, entryId exp-idem-0002):
+   one response applied:true (version 1, createdAt 13:13:01.960Z)
+   the other applied:false, reason "duplicate opId", identical entry.
+   The unique index, not the function, decided the winner.

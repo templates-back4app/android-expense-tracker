@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export function loadEnv(file = path.join(ROOT, '.env')) {
+/** @param {{ master?: boolean }} [opts] master=false: MASTER_KEY may be absent (setup.mjs then uses the setupSchema Cloud function). */
+export function loadEnv({ master = true } = {}, file = path.join(ROOT, '.env')) {
   const env = { SERVER_URL: 'https://parseapi.back4app.com', ...process.env };
   if (fs.existsSync(file)) {
     for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
@@ -13,7 +14,7 @@ export function loadEnv(file = path.join(ROOT, '.env')) {
       if (m && !(m[1] in process.env)) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
     }
   }
-  for (const k of ['APP_ID', 'MASTER_KEY']) {
+  for (const k of master ? ['APP_ID', 'MASTER_KEY'] : ['APP_ID']) {
     if (!env[k]) {
       console.error(`${k} is missing. Copy .env.example to .env and paste the keys from App Settings → Security & Keys.`);
       process.exit(2);

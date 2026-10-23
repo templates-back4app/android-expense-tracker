@@ -1,0 +1,25 @@
+throw-away user BnOotTd3Op (check-sync-1792760152358) created
+PASS ensureUser answers for a signed-in user — {"userId":"BnOotTd3Op","username":"check-sync-1792760152358","anonymous":false,"entries":0,"serverTime":"2026-10-23T12:55:52.440Z"}
+PASS ensureUser rejects anonymous calls — 209 Sign in to sync.
+PASS create applied with version 1 — {"entryKey":"acf0f5e7-b8b3-4d18-b59d-fbcab23d119c","amountCents":1234,"category":"Food","date":"2026-10-23","note":"lunch","version":1,"deletedAt":null,"updatedAt":"2026-10-23T12:55:52.443Z","createdAt":"2026-10-23T12:55:52.443Z"}
+PASS same opId again → duplicate opId, not applied (needs the UNIQUE index on AppliedOp.opId) — {"applied":false,"reason":"duplicate opId","version":1}
+PASS update with baseVersion 1 → version 2, no conflict
+PASS stale baseVersion → applied (LWW) + conflict recorded — {"reason":"stale baseVersion","baseVersion":1,"serverVersion":2,"opId":"7fecbde7-f5b0-40ce-93e1-fe8532623456","conflictId":"lidGj6Zafd"}
+PASS non-integer amountCents rejected (142) — amountCents must be a non-negative integer (cents).
+PASS listEntries returns the entry with a cursor
+PASS delete → tombstone with version 4 (stale base ignored)
+PASS update after delete → tombstone wins, conflict recorded
+PASS second delete is idempotent (version stays 4)
+PASS incremental pull includes the tombstone
+PASS create without amount/category/date rejected (142) — create requires amountCents, category and date.
+PASS direct Entry create rejected (CLP 119 or beforeSave) — 119 Permission denied for action create on class Entry.
+PASS direct Entry update rejected (119) — 119 Permission denied for action update on class Entry.
+PASS direct Entry delete rejected (119) — 119 Permission denied for action delete on class Entry.
+PASS AppliedOp is not readable by clients (119) — 119 Permission denied for action find on class AppliedOp.
+PASS the owner can read their own Entry rows (ACL)
+PASS the owner can read their Conflict rows (2 recorded) — 2 rows
+cleanup Conflict: 2 row(s) removed
+cleanup AppliedOp: 7 row(s) removed
+cleanup Entry: 1 row(s) removed
+cleanup: user BnOotTd3Op removed
+19 passed, 0 failed

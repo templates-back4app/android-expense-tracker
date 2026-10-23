@@ -40,6 +40,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,7 +91,12 @@ fun EntryFormScreen(container: AppContainer, entryKey: String?, onDone: () -> Un
                     trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(), enabled = !s.deleted,
                 )
-                Box(Modifier.matchParentSize().clickable(enabled = !s.deleted) { categoryMenu = true })
+                // The overlay takes the taps; give it the field's meaning too, or uiautomator/TalkBack see an unnamed box.
+                Box(
+                    Modifier.matchParentSize()
+                        .semantics { contentDescription = "Category: ${s.category.ifEmpty { "none" }}"; role = Role.DropdownList }
+                        .clickable(enabled = !s.deleted, onClickLabel = "Pick a category") { categoryMenu = true },
+                )
                 DropdownMenu(expanded = categoryMenu, onDismissRequest = { categoryMenu = false }) {
                     s.categories.forEach { name ->
                         DropdownMenuItem(text = { Text(name) }, onClick = { vm.setCategory(name); categoryMenu = false })

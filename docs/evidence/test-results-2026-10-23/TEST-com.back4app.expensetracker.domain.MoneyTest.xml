@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.back4app.expensetracker.domain.MoneyTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-23T09:22:31.731Z" hostname="Georges-MacBook-Air-2.local" time="0.019">
+<testsuite name="com.back4app.expensetracker.domain.MoneyTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-23T13:29:45.958Z" hostname="Georges-MacBook-Air-2.local" time="0.021">
   <properties/>
   <testcase name="formats cents as dollars" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.005"/>
-  <testcase name="round trips through the text field" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.012"/>
+  <testcase name="round trips through the text field" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.011"/>
   <testcase name="parses dollars and cents into integer cents" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.001"/>
-  <testcase name="rejects anything that is not a non-negative amount with at most two decimals" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.0"/>
+  <testcase name="rejects anything that is not a non-negative amount with at most two decimals" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.001"/>
   <testcase name="budget percentage rounds half up and survives a zero budget" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.0"/>
   <testcase name="never goes through floating point" classname="com.back4app.expensetracker.domain.MoneyTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>

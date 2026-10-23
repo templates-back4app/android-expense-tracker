@@ -40,6 +40,17 @@ object SyncPlanner {
         }
     }
 
+    /**
+     * The server answered for an op of [entryKey] and the entry is now at [serverVersion]. Every op of the same key
+     * that is still queued was produced on this device on top of that op's local result, so its base is that
+     * version — not the one the device had seen before the chain started (0 for an entry created offline).
+     * Without this, an offline create+edit or edit+edit chain is reported as a "stale baseVersion" conflict
+     * although nobody else wrote (observed on the emulator run of 2026-10-23). A genuine concurrent write from
+     * another device still shows: it bumps the server version *after* this rebase, and the next op's base is stale.
+     */
+    fun rebase(pending: List<PendingOp>, entryKey: String, serverVersion: Int): List<PendingOp> =
+        pending.map { if (it.entryKey == entryKey && it.baseVersion != null) it.copy(baseVersion = serverVersion) else it }
+
     /** After the server reported a tombstone for `entryKey`, nothing queued for that key can still matter. */
     fun dropSupersededByTombstone(pending: List<PendingOp>, entryKey: String): List<PendingOp> =
         pending.filterNot { it.entryKey == entryKey }
