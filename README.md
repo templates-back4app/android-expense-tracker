@@ -73,8 +73,8 @@ release.keyPassword=...
 
 ## Backend (one-time, ~10 minutes)
 
-1. Create a Back4app app (*Build your Backend*). Copy the Application ID, Client key and REST key. The master key can
-   stay in the dashboard: nothing below needs it on your machine (it is only required for `check-sync.mjs`).
+1. Create a Back4app app (*Build your Backend*). Copy the Application ID, Client key and REST key. The master key stays
+   in the dashboard: nothing below needs it on your machine.
 2. `cp .env.example .env` and paste `APP_ID` and `REST_KEY` (scripts only; the app never sees this file).
 3. Dashboard → **Cloud Code** → *Upload* → `cloud/main.js` **and** `cloud/config.js` → confirm the badge *Files pending
    deploy (2)* → *Deploy*. (A freshly created backend sometimes reports "Success" while deploying nothing — reload the
@@ -88,8 +88,8 @@ release.keyPassword=...
    call `setupSchema`; it re-applies the intended permissions and nothing else, but close it before real users sign up.
 6. Dashboard → **Database** → `AppliedOp` → *Index Manager* → new index `{opId: 1}` with **Unique**. The schema API
    cannot create unique indexes, and this one is what makes retries idempotent (details below).
-7. `node scripts/check-sync.mjs` (needs `MASTER_KEY` in `.env`, delete it afterwards if you like) — creates a throw-away
-   user, runs the whole contract (create, duplicate retry, update, stale update, delete, edit-after-delete, pull with
+7. `node scripts/check-sync.mjs` — with the REST key alone (cleanup runs through the `testCleanup` Cloud function while
+   `SETUP_ENABLED` is on; with `MASTER_KEY` in `.env` it cleans up directly) — creates a throw-away user, runs the whole contract (create, duplicate retry, update, stale update, delete, edit-after-delete, pull with
    tombstones, client-write lockdown), deletes everything it made and prints `19 passed, 0 failed`.
 8. Optional: schedule the `purgeTombstones` job daily (Dashboard → Cloud Code → Jobs, or `POST /jobs/purgeTombstones`
    with the master key from any cron).
@@ -209,9 +209,14 @@ emulator reboot with queued ops. Details, timestamps and screenshots: `docs/evid
 `docs/evidence/offline-matrix.md`. Cold start on that emulator: p50 932 ms over 10 runs (debug build — compare only
 against itself). Five bugs found by that run are fixed and listed in `docs/notes/build-diary.md` §12.
 
-**Not verified**: the real Back4app backend (MongoDB, TLS, the dashboard steps above, `setupSchema` through the live
-app), a physical device, session expiry on the worker path, and the 90-day tombstone purge / full pull (unit-tested
-rule only).
+On the same day the backend side ran against the real Back4app app `expense-tracker` (Parse Server 7.5.2, MongoDB):
+`setupSchema` through the REST key, the UNIQUE index in the Index Manager, `check-sync.mjs` 19/19
+(`docs/evidence/check-sync-live-2026-10-23.log`) and the same `opId` sent twice and in parallel
+(`docs/evidence/idempotency-live-2026-10-23.txt`). That run found one difference between the two servers — the object
+in memory does not carry the incremented `version` after `save()` on Back4app — fixed in `cloud/main.js` (diary §15).
+
+**Not verified**: the app itself on a physical device or against the live backend from a phone, session expiry on the
+worker path, and the 90-day tombstone purge / full pull (unit-tested rule only).
 
 ## Toolchain notes
 

@@ -275,7 +275,7 @@ against it; with the flag off: `119 setupSchema is disabled`.
 `./gradlew test assembleDebug assembleRelease`: 28 s, 29 tests, 0 failed. `app-debug.apk` 14,325,116 B,
 `app-release.apk` 2,083,111 B (+283 B vs the 2026-10-23 morning build: the semantics strings and the rebase code).
 
-## 13. 2026-10-23 — live run on Back4app (backend `expense-tracker`, Parse Server 7.5.2, MongoDB)
+## 15. 2026-10-23 — live run on Back4app (backend `expense-tracker`, Parse Server 7.5.2, MongoDB)
 
 - Cloud Code deployed from the dashboard editor (`main.js` via the editor, `config.js` via *Upload Files* with the
   `cloud` folder selected). `setupSchema` from the REST key: Entry updated (+deletedAt), AppliedOp updated, Conflict
