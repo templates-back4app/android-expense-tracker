@@ -1,0 +1,12 @@
+# Copy to local.properties (gitignored). Android Studio adds sdk.dir on its own.
+sdk.dir=/Users/you/Library/Android/sdk
+
+# Back4app → App Settings → Security & Keys. Only these two; NEVER the master key.
+parse.appId=PASTE_APPLICATION_ID
+parse.clientKey=PASTE_CLIENT_KEY
+
+# Optional release signing (see README "Release build"):
+# release.storeFile=keystore/release.jks
+# release.storePassword=...
+# release.keyAlias=...
+# release.keyPassword=...

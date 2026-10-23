@@ -1,0 +1,5 @@
+# Alternative to local.properties: copy this file to backend.properties in the same folder (gitignored) and paste
+# the Application ID and the Client key from Back4app → App Settings → Security & Keys. Never the master key.
+appId=PASTE_APPLICATION_ID
+clientKey=PASTE_CLIENT_KEY
+serverUrl=https://parseapi.back4app.com/

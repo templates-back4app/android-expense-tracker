@@ -1,0 +1,23 @@
+# Gradle / IDE
+.gradle/
+build/
+.idea/
+*.iml
+.kotlin/
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Secrets and machine-specific files — never commit
+local.properties
+app/src/main/assets/backend.properties
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.local.json
+
+# Cloud Code tooling
+node_modules/

@@ -1,0 +1,11 @@
+# ls -l app/build/outputs/apk/*/*.apk · 2026-10-23T09:22:55Z
+-rw-r--r--@ 1 georgeb  staff  13846018 Oct 23 11:22 app/build/outputs/apk/debug/app-debug.apk
+-rw-r--r--@ 1 georgeb  staff   2082828 Oct 23 11:22 app/build/outputs/apk/release/app-release.apk
+
+# shasum -a 256
+a51ccebf7bfc3ea464d48d04c9472aacdd81a95d9054c522b998ee052b061362  app/build/outputs/apk/debug/app-debug.apk
+5e4aea2820868f0ec927b5b74030eee12230142fdb530f1c71c1a0e57b9cdf82  app/build/outputs/apk/release/app-release.apk
+
+# uncompressed size / file count
+ 35010978                     152 files
+  3892387                     137 files
