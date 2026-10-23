@@ -151,6 +151,7 @@ Parse.Cloud.define('syncOp', async (req) => {
       entry.set('deletedAt', new Date());
       entry.increment('version');
       await entry.save(null, M);
+      entry = await entry.fetch(M); // see note on increment() below
     }
     return { applied: true, entry: entryJSON(entry) };
   }
@@ -167,6 +168,11 @@ Parse.Cloud.define('syncOp', async (req) => {
   for (const [k, v] of Object.entries(fields)) entry.set(k, v); // last-arrival-wins, per field
   entry.increment('version');
   await entry.save(null, M);
+  // increment() is atomic on the server, but the object in memory is not guaranteed to carry the new value after
+  // save(): on Back4app (Parse Server 7.5.2, MongoDB) `version` still read 1 after the first update, while the local
+  // parse-server 7.5.4 on PostgreSQL returned 2. Re-reading the row is one extra query and the only answer that is
+  // right under concurrent updates of the same entry.
+  entry = await entry.fetch(M);
   return { applied: true, entry: entryJSON(entry), conflict };
 });
 
