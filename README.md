@@ -215,8 +215,12 @@ On the same day the backend side ran against the real Back4app app `expense-trac
 (`docs/evidence/idempotency-live-2026-10-23.txt`). That run found one difference between the two servers — the object
 in memory does not carry the incremented `version` after `save()` on Back4app — fixed in `cloud/main.js` (diary §15).
 
-**Not verified**: the app itself on a physical device or against the live backend from a phone, session expiry on the
-worker path, and the 90-day tombstone purge / full pull (unit-tested rule only).
+The release APK on GitHub Releases (v0.1.0) was then installed on the emulator and used against the live backend:
+guest sign-in, one expense, sync status *up to date*, the row visible in the dashboard
+(`docs/evidence/live-apk-run-2026-10-23.md`).
+
+**Not verified**: a physical device, the offline matrix against the live backend (local server only), session expiry
+on the worker path, and the 90-day tombstone purge / full pull (unit-tested rule only).
 
 ## Toolchain notes
 
