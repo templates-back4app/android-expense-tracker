@@ -1,7 +1,7 @@
 # Android expense tracker — Kotlin + Jetpack Compose + a Parse backend, with offline sync
 
-Companion repository for the article *"Android expense tracker app with source code (Kotlin + Jetpack Compose + a Parse
-backend): download, run, and understand offline sync"*. It is the smallest useful expense tracker that works offline
+Companion repository for the article [*Android Expense Tracker App With Source Code: Kotlin, Jetpack Compose and Offline
+Sync That Is Actually Specified*](https://www.back4app.com/blog/android-expense-tracker-app-with-source-code) (Back4app blog, 2026-10-26). It is the smallest useful expense tracker that works offline
 first and syncs to a Back4app (Parse Server) backend through two Cloud functions — nothing more.
 
 **Screens**: Login (e-mail/password, or *Continue as guest* = anonymous Parse user) · Entries (month filter, spent vs
