@@ -6,5 +6,5 @@
 // removes, and never touches indexes. It exists so a backend can be set up without the master key ever leaving the
 // dashboard. Set it to false and redeploy before real users sign up.
 module.exports = {
-  SETUP_ENABLED: false,
+  SETUP_ENABLED: true,
 };
